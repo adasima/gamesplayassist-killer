@@ -15,6 +15,16 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+      - name: tag と Cargo.toml の version が一致するか
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"' |
+            Select-Object -First 1).Matches.Groups[1].Value
+          if ($tag -ne "v$version") {
+            throw "tag $tag と Cargo.toml の version $version が一致しません"
+          }
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
@@ -24,8 +34,17 @@ jobs:
         with:
           name: gamesplayassist-killer
           path: target/release/gamesplayassist-killer.exe
+      - name: 配布用 zip を組み立てる
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory package | Out-Null
+          Copy-Item target/release/gamesplayassist-killer.exe package/
+          Copy-Item dist/* package/
+          Compress-Archive -Path package/* `
+            -DestinationPath "gamesplayassist-killer-${{ github.ref_name }}.zip"
       - uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: target/release/gamesplayassist-killer.exe
+          files: gamesplayassist-killer-${{ github.ref_name }}.zip
           generate_release_notes: true

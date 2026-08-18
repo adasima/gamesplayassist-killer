@@ -31,8 +31,8 @@ const USAGE: &str = "\
 gamesplayassist-killer
 
 引数なし      常駐して GamesPlayAssist を監視・終了させる
---install     ログオン時の自動起動を登録する (管理者権限は不要)
---uninstall   自動起動の登録を解除する
+--install     %LOCALAPPDATA% へ自分をコピーして自動起動を登録し、常駐を開始する
+--uninstall   自動起動を解除し、常駐を停止してコピーを削除する
 --force       ゲーム本体の起動を待たず、見つけ次第すぐ終了させる
 --help        このヘルプを表示する";
 

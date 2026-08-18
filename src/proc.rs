@@ -2,7 +2,7 @@
 
 use std::ffi::c_void;
 use std::mem::{size_of, zeroed};
-use std::ptr::null;
+use std::ptr::{null, null_mut};
 
 use windows_sys::Win32::Foundation::{
     CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE, INVALID_HANDLE_VALUE,
@@ -12,8 +12,8 @@ use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
 };
 use windows_sys::Win32::System::Threading::{
-    CreateMutexW, OpenProcess, TerminateProcess, PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE,
-    PROCESS_VM_READ,
+    CreateMutexW, CreateProcessW, OpenProcess, TerminateProcess, PROCESS_INFORMATION,
+    PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE, PROCESS_VM_READ, STARTUPINFOW,
 };
 
 /// x64 の PEB におけるプロセスパラメータへのポインタの位置。
@@ -142,6 +142,55 @@ pub fn terminate(pid: u32) -> bool {
         }
         let handle = OwnedHandle(handle);
         TerminateProcess(handle.0, 1) != 0
+    }
+}
+
+/// 実行ファイルを起動し、親の終了に巻き込まれないよう切り離す。
+///
+/// `std::process::Command` ではなく生の CreateProcessW を使うのは、std のプロセス機構を
+/// 引き込むとバイナリが倍近くに膨らむため。引数は渡さないので子は常駐モードで動く。
+/// 作業ディレクトリを配置先に固定するのは、呼び出し元のフォルダ (多くはダウンロード
+/// フォルダ) を掴んだままにして削除できなくするのを避けるため。
+pub fn spawn_detached(exe: &str, directory: &str) -> bool {
+    unsafe {
+        let application = wide(exe);
+        let directory = wide(directory);
+        let mut startup: STARTUPINFOW = zeroed();
+        startup.cb = size_of::<STARTUPINFOW>() as u32;
+        let mut info: PROCESS_INFORMATION = zeroed();
+
+        let started = CreateProcessW(
+            application.as_ptr(),
+            null_mut(),
+            null(),
+            null(),
+            0,
+            0,
+            null(),
+            directory.as_ptr(),
+            &startup,
+            &mut info,
+        );
+        if started == 0 {
+            return false;
+        }
+        // 子は独立して動き続ける。こちらはハンドルを手放すだけ。
+        CloseHandle(info.hProcess);
+        CloseHandle(info.hThread);
+        true
+    }
+}
+
+/// 同名の他インスタンスをすべて終了させる。自分自身は対象にしない。
+///
+/// `--install` が古い常駐を置き換えるために使う。実行中の exe は上書きできず、
+/// 生かしたままだとミューテックスに弾かれて新しい方が起動できない。
+pub fn terminate_others(exe_name: &str) {
+    let self_pid = std::process::id();
+    for entry in snapshot() {
+        if entry.pid != self_pid && entry.name.eq_ignore_ascii_case(exe_name) {
+            terminate(entry.pid);
+        }
     }
 }
 
