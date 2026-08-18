@@ -1,0 +1,27 @@
+[package]
+name = "gamesplayassist-killer"
+version = "0.1.0"
+edition = "2021"
+description = "Kills DMM GamePlayer's GamesPlayAssist.exe so its global hotkeys stop stealing key input from the game"
+license = "MIT"
+repository = "https://github.com/adasima/gamesplayassist-killer"
+
+[dependencies.windows-sys]
+version = "0.60"
+features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

@@ -1,0 +1,31 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test --locked
+      - run: cargo build --release --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gamesplayassist-killer
+          path: target/release/gamesplayassist-killer.exe
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: target/release/gamesplayassist-killer.exe
+          generate_release_notes: true
