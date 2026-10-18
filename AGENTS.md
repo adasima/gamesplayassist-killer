@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 Resident Windows tool that terminates DMM GAME PLAYER's `GamesPlayAssist.exe`, whose global
 hotkeys swallow key input before it reaches the running game.
